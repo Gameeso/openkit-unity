@@ -25,11 +25,11 @@ public class OpenKitBuildMenu : EditorWindow {
 
 		string SDKVersion = OKManager.OPENKIT_SDK_VERSION;
 
-		string PackageName = "SDKPackages/OpenKitUnityPlugin." + SDKVersion + ".unitypackage";
+		string PackageName = "SDKPackages/Gameeso-Unity-SDK.unitypackage";
 
 		AssetDatabase.ExportPackage(OpenKitAssetPaths,PackageName,ExportPackageOptions.Recurse | ExportPackageOptions.Interactive);
 
-		Debug.Log ("Exported OpenKit Package");
+		Debug.Log ("Exported Gameeso Package");
 	}
 
 }

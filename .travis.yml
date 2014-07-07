@@ -1,0 +1,15 @@
+language: objective-c
+before_script: travis/before_script.sh
+script: travis/script.sh
+branches:
+  only:
+  - development
+  - master
+deploy:
+  provider: releases
+  api_key:
+    secure: lKwH2RUi4GWoVIK/9+0AF6F+/yjzVzvT0gJLuJYVW5rnqFz2DPGc/pwRnmykfYYaAIgfXcCjZV3FVdGG7MYNQobvWIs1HoiLTPY8kAuoeDxyw6M7/Bei6LH/hZvovA0KSZCHyIkPY1IZkwUSUdhENUXRLKYb7ee4m63IA/RI04c=
+  file: OpenKitUnityPlugin/SDKPackages/Gameeso-Unity-SDK.unitypackage
+  skip_cleanup: true
+  on:
+    branch: master

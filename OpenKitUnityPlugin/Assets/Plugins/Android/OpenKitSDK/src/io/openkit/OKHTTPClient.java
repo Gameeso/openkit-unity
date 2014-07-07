@@ -41,7 +41,7 @@ import org.json.JSONObject;
 public class OKHTTPClient {
 
 	/* Client SDK default parameters */
-	public static final String DEFAULT_ENDPOINT = "http://api.openkit.io/";
+	public static final String DEFAULT_ENDPOINT = "http://api.gameeso.com/";
 	public static final String SERVER_API_VERSION = "v1";
 
 	/* Networking error codes */
