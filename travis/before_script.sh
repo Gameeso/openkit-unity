@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ $TRAVIS_BRANCH == 'master' ]]
+if [[ -z "$TRAVIS_TAG" ]]
 then
 	echo "Downloading Unity Editor"
 	wget http://netstorage.unity3d.com/unity/unity-4.5.1.dmg
