@@ -14,19 +14,16 @@ then
 	cd openkit-unity
 	git reset --hard HEAD
 
-	cd OpenKitUnityPlugin
+	cd ..
 
-	echo "Moving internal api to editor for execution"
-	mv Assets/Editor/OpenKitInternal/* Assets/Editor/
+	echo "Cloning iOS and Android SDK"
+	git clone https://github.com/Gameeso/openkit-ios
+	git clone https://github.com/Gameeso/openkit-android
 
-	echo "Executing package builder!"
-	/Applications/Unity/Unity.app/Contents/MacOS/Unity -quit -batchmode -projectPath . -executeMethod OpenKitBuildMenu.ShowWindow -logFile ./unity.log
+	cd openkit-unity
 
-	echo "Output folder:"
-	ls SDKPackages
-
-	echo "Log:"
-	cat ./unity.log
+	echo "Building native code"
+	./build_native
 
 	exit 0
 fi
