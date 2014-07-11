@@ -21,7 +21,6 @@ ANDROID_SDK_BUILD_FILE="../openkit-android/OpenKitSDK/build.xml"
 ANDROID_UNITY_BUILD_FILE="../openkit-android/OpenKitUnity/build.xml" 
 ANDROID_SDK_FOLDER="../openkit-android/OpenKitSDK"
 
-
 UNITY_PLUGINS_FOLDER="OpenKitUnityPlugin/Assets/Plugins"
 UNITY_PLUGINS_ANDROID_FOLDER="OpenKitUnityPlugin/Assets/Plugins/Android"
 UNITY_PLUGINS_IOS_FOLDER="OpenKitUnityPlugin/Assets/Plugins/iOS"

@@ -1,11 +1,13 @@
-language: objective-c
+language: node_js
+node_js:
+  - "0.11"
 before_script: travis/before_script.sh
 script: travis/script.sh
 deploy:
   provider: releases
   api_key:
     secure: "IziraEzPTspfH0nZN/mYtKrm4/HyWPEN5cvg+fNU8QeUxFUedAUm2M53TKyjb/HU+aqbccTjfHTzzZYFh6I9HAXb4+MuiehR/wBsUBAMCw+t1tahj6c+6fBT54O5/nX1zv9zhQRH/g/XXiZo8+YL4rE/ecrqCcWvLTueXUssnOQ="
-  file: unity_staging/openkit-unity/OpenKitUnityPlugin/SDKPackages/Gameeso-Unity-SDK.unitypackage
+  file: Gameeso-Unity-SDK.zip
   skip_cleanup: true
   on:
     tags: true
