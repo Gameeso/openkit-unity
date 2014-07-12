@@ -9,7 +9,7 @@ namespace OpenKit
 	public class OKManager
 	{
 		public const string OPENKIT_SDK_VERSION = "1.1.1";
-		private const string DEFAULT_ENDPOINT = "http://api.openkit.io";
+		private const string DEFAULT_ENDPOINT = "http://api.gameeso.com";
 
 		private string _LeaderboardListTag = null;
 		private static IOKNativeBridge nativeBridge = null;
