@@ -31,7 +31,15 @@ public sealed class FB : ScriptableObject
         }
     }
 
-    public static string AppId { get { return FBSettings.AppId; } }
+    public static string AppId 
+    {
+        get 
+        {
+            // appId might be different from FBSettings.AppId
+            // if using the programmatic version of FB.Init()
+            return appId;
+        } 
+    }
     public static string UserId
     {
         get
@@ -47,11 +55,27 @@ public sealed class FB : ScriptableObject
         }
     }
 
+    public static DateTime AccessTokenExpiresAt
+    {
+        get
+        {
+            return (facebook != null) ? facebook.AccessTokenExpiresAt : DateTime.MinValue;
+        }
+    }
+
     public static bool IsLoggedIn
     {
         get
         {
             return (facebook != null) && facebook.IsLoggedIn;
+        }
+    }
+
+    public static bool IsInitialized
+    {
+        get 
+        {
+            return (facebook != null) && facebook.IsInitialized;
         }
     }
 
@@ -105,7 +129,15 @@ public sealed class FB : ScriptableObject
         if (!isInitCalled)
         {
             var versionInfo = FBBuildVersionAttribute.GetVersionAttributeOfType(typeof (IFacebook));
-            FbDebug.Info(String.Format("Using SDK {0}, Build {1}", versionInfo.Version, versionInfo.ToString()));
+
+            if (versionInfo == null)
+            {
+                FbDebug.Warn("Cannot find Facebook SDK Version");
+            }
+            else
+            {
+                FbDebug.Info(String.Format("Using SDK {0}, Build {1}", versionInfo.SdkVersion, versionInfo.BuildVersion));
+            }
 
 #if UNITY_EDITOR
             FBComponentFactory.GetComponent<EditorFacebookLoader>();
@@ -133,7 +165,11 @@ public sealed class FB : ScriptableObject
 
     private static void OnDllLoaded()
     {
-        FbDebug.Log("Finished loading Facebook dll. Build " + FBBuildVersionAttribute.GetBuildVersionOfType(FacebookImpl.GetType()));
+        var versionInfo = FBBuildVersionAttribute.GetVersionAttributeOfType(FacebookImpl.GetType());
+        if (versionInfo != null)
+        {
+            FbDebug.Log(string.Format("Finished loading Facebook dll. Version {0} Build {1}", versionInfo.SdkVersion, versionInfo.BuildVersion));
+        }
         FacebookImpl.Init(
             OnInitComplete,
             appId,
@@ -161,6 +197,32 @@ public sealed class FB : ScriptableObject
 
     public static void AppRequest(
             string message,
+            OGActionType actionType,
+            string objectId,
+            string[] to,
+            string data = "",
+            string title = "",
+            FacebookDelegate callback = null)
+    {
+        FacebookImpl.AppRequest(message, actionType, objectId, to, null, null, null, data, title, callback);
+    }
+
+    public static void AppRequest(
+            string message,
+            OGActionType actionType,
+            string objectId,
+            string filters = "",
+            string[] excludeIds = null,
+            int? maxRecipients = null,
+            string data = "",
+            string title = "",
+            FacebookDelegate callback = null)
+    {
+        FacebookImpl.AppRequest(message, actionType, objectId, null, filters, excludeIds, maxRecipients, data, title, callback);
+    }
+
+    public static void AppRequest(
+            string message,
             string[] to = null,
             string filters = "",
             string[] excludeIds = null,
@@ -169,7 +231,7 @@ public sealed class FB : ScriptableObject
             string title = "",
             FacebookDelegate callback = null)
     {
-        FacebookImpl.AppRequest(message, to, filters, excludeIds, maxRecipients, data, title, callback);
+        FacebookImpl.AppRequest(message, null, null, to, filters, excludeIds, maxRecipients, data, title, callback);
     }
 
     public static void Feed(
@@ -207,6 +269,22 @@ public sealed class FB : ScriptableObject
     public static void GetDeepLink(FacebookDelegate callback)
     {
         FacebookImpl.GetDeepLink(callback);
+    }
+
+    public static void GameGroupCreate(
+        string name,
+        string description,
+        string privacy = "CLOSED",
+        FacebookDelegate callback = null)
+    {
+        FacebookImpl.GameGroupCreate(name, description, privacy, callback);
+    }
+
+    public static void GameGroupJoin(
+        string id,
+        FacebookDelegate callback = null)
+    {
+        FacebookImpl.GameGroupJoin(id, callback);
     }
 
     #region App Events
@@ -323,7 +401,20 @@ public sealed class FB : ScriptableObject
                 yield break;
             }
 
+#if !UNITY_WINRT
+#if UNITY_4_5
+            var authTokenWww = new WWW(IntegratedPluginCanvasLocation.KeyUrl);
+            yield return authTokenWww;
+            if (authTokenWww.error != null)
+            {
+                FbDebug.Error("Cannot load from " + IntegratedPluginCanvasLocation.KeyUrl + ": " + authTokenWww.error);
+                authTokenWww.Dispose();
+                yield break;
+            }
+            var assembly = Security.LoadAndVerifyAssembly(www.bytes, authTokenWww.text);
+#else
             var assembly = Security.LoadAndVerifyAssembly(www.bytes);
+#endif
             if (assembly == null)
             {
                 FbDebug.Error("Could not securely load assembly from " + url);
@@ -354,6 +445,7 @@ public sealed class FB : ScriptableObject
             }
 
             callback(fb);
+#endif
             www.Dispose();
         }
 

@@ -31,7 +31,6 @@ extern "C" void iosGetDeepLink();
   }
 }
 
-
 - (id)init {
   if(_instance != nil) {
     return _instance;
@@ -44,7 +43,7 @@ extern "C" void iosGetDeepLink();
   _instance = self;
   
   self.isInitializing = YES;
-  self. dialogMode = NativeDialogModes::FAST_APP_SWITCH_SHARE_DIALOG;
+  self.dialogMode = NativeDialogModes::FAST_APP_SWITCH_SHARE_DIALOG;
 
   [[NSNotificationCenter defaultCenter]
    addObserver:self
@@ -70,17 +69,22 @@ extern "C" void iosGetDeepLink();
   return self;
 }
 
-- (id)initWithCookie:(bool)cookie
-             logging:(bool)_logging
+- (id)initWithAppId:(const char *)_appId
+             cookie:(bool)_cookie
+            logging:(bool)_logging
               status:(bool)_status
 frictionlessRequests:(bool)_frictionlessRequests
-           urlSuffix:(const char *)urlSuffix {
+           urlSuffix:(const char *)_urlSuffix {
   self = [self init];
   
   self.useFrictionlessRequests = _frictionlessRequests;
   
-  if(urlSuffix && strlen(urlSuffix) > 0) {
-    [FBSettings setDefaultUrlSchemeSuffix:[NSString stringWithUTF8String:urlSuffix]];
+  if(_appId) {
+    [FBSettings setDefaultAppID:[NSString stringWithUTF8String:_appId]];
+  }
+  
+  if(_urlSuffix && strlen(_urlSuffix) > 0) {
+    [FBSettings setDefaultUrlSchemeSuffix:[NSString stringWithUTF8String:_urlSuffix]];
   }
   
   //since this class is a singleton, I don't know how we would ever have an open session here, but handle anyway
@@ -108,13 +112,31 @@ frictionlessRequests:(bool)_frictionlessRequests
   return self;
 }
 
++ (void)sendMessageToUnity:(const char *)unityMessage userData:(NSDictionary *)userData
+{
+  NSError *serializationError = nil;
+  NSData *jsonData = nil;
+  if(userData != nil) {
+    jsonData = [NSJSONSerialization dataWithJSONObject:userData options:0 error:&serializationError];
+  }
 
+  const char *userDataString = nil;
+  NSString *jsonString = nil;
+  if (jsonData) {
+    jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    userDataString = [jsonString cStringUsingEncoding:NSUTF8StringEncoding];
+  }
+  
+  UnitySendMessage(g_fbObjName, unityMessage, userDataString==nil?"":userDataString);
+
+}
 
 
 - (void)handleSessionChange:(FBSession *)session
                       state:(FBSessionState) state
                       error:(NSError *)error
 {
+  NSMutableDictionary *msgData = [NSMutableDictionary dictionary];
   switch (state) {
     case FBSessionStateOpen: {
       [FBSession setActiveSession:session];
@@ -131,21 +153,30 @@ frictionlessRequests:(bool)_frictionlessRequests
       //what can possibly go wrong?
       [FBRequestConnection startForMeWithCompletionHandler:
        ^(FBRequestConnection *connection, id result, NSError *error) {
-        std::string strRes = "";
-        id<FBGraphUser> user = result;
-        if(user && session != nil && session.accessTokenData != nil && session.accessTokenData.accessToken != nil) {
-          strRes += [[user objectForKey:@"id"] cStringUsingEncoding:NSUTF8StringEncoding];
-          strRes += ":";
-          strRes += [session.accessTokenData.accessToken cStringUsingEncoding:NSUTF8StringEncoding];
-        }
-
-        if(self.isInitializing) {
-          UnitySendMessage(g_fbObjName, "OnInitComplete", strRes.c_str());
-          self.isInitializing = NO;
-        } else {
-          UnitySendMessage(g_fbObjName, "OnLogin", strRes.c_str());
-        }
+         
+         id<FBGraphUser> user = result;
+         if(user && session != nil && session.accessTokenData != nil && session.accessTokenData.accessToken != nil) {
+           [msgData setObject:[user objectForKey:@"id"] forKey:@"user_id"];
+           [msgData setObject:session.accessTokenData.accessToken forKey:@"access_token"];
+           [msgData setObject:[NSString stringWithFormat:@"%ld", (long)session.accessTokenData.expirationDate.timeIntervalSince1970] forKey:@"expiration_timestamp"];
+         }
+         
+         const char *msgType = nil;
+         if(self.isInitializing) {
+           msgType = "OnInitComplete";
+           self.isInitializing = NO;
+         } else {
+           msgType = "OnLogin";
+         }
+         [FbUnityInterface sendMessageToUnity:msgType userData:msgData];
       }];
+    }
+      break;
+      
+    case FBSessionStateOpenTokenExtended: {
+      [msgData setObject:session.accessTokenData.accessToken forKey:@"access_token"];
+      [msgData setObject:[NSString stringWithFormat:@"%ld", (long)session.accessTokenData.expirationDate.timeIntervalSince1970] forKey:@"expiration_timestamp"];
+      [FbUnityInterface sendMessageToUnity:"OnAccessTokenRefresh" userData:msgData];
     }
       break;
 
@@ -203,12 +234,22 @@ frictionlessRequests:(bool)_frictionlessRequests
 
 
 - (BOOL)openURL:(NSURL*)url sourceApplication:(NSString*)sourceApplication {
-  bool res = [FBAppCall handleOpenURL:url sourceApplication:sourceApplication withSession:self.session];
+  __block bool hasDeepLink = false;
+  bool fbhandled = [FBAppCall handleOpenURL:url
+                        sourceApplication:sourceApplication
+                        withSession:self.session
+                        fallbackHandler:^(FBAppCall *call) {
+    // Handler is called when FB SDK does consume a url, but only partially
+    hasDeepLink = true;
+  }];
+
   [FBSession setActiveSession:self.session];
-  self.launchURL = [url absoluteString];
-  iosGetDeepLink();
+  if (hasDeepLink || !fbhandled) {
+    self.launchURL = [url absoluteString];
+    iosGetDeepLink();
+  }
   
-  return res;
+  return fbhandled;
 }
 
 
@@ -353,9 +394,8 @@ NSDictionary *UnpackDict(int numVals, const char **keys, const char **vals)
 //everything in the extern "C" section is callable from C# unity
 extern "C" {
 
-void iosInit(bool _cookie, bool _logging, bool _status, bool _frictionlessRequests, const char *_urlSuffix) {
-  //[FbUnityInterface sharedInstance];
-  [[FbUnityInterface alloc] initWithCookie:_cookie logging:_logging status:_status frictionlessRequests:_frictionlessRequests urlSuffix:_urlSuffix];
+void iosInit(const char *_appId, bool _cookie, bool _logging, bool _status, bool _frictionlessRequests, const char *_urlSuffix) {
+  [[FbUnityInterface alloc] initWithAppId:_appId cookie:_cookie logging:_logging status:_status frictionlessRequests:_frictionlessRequests urlSuffix:_urlSuffix];
 }
 
 void iosLogin(const char *scope) {
@@ -369,9 +409,45 @@ void iosLogout() {
 void iosSetShareDialogMode(NativeDialogModes::eModes mode) {
   [[FbUnityInterface sharedInstance] setDialogMode:mode];
 }
+  
+void iosCreateGameGroup(int requestId,
+                        const char *name,
+                        const char *description,
+                        const char *privacy) {
+  NSMutableDictionary *params = [NSMutableDictionary dictionary];
+  addCStrToNsDict(params, "name", name);
+  addCStrToNsDict(params, "description", description);
+  addCStrToNsDict(params, "privacy", privacy);
+  
+  [FBWebDialogs presentDialogModallyWithSession:FBSession.activeSession
+                                         dialog:@"game_group_create"
+                                     parameters:params
+                                        handler:^(FBWebDialogResult result,
+                                                  NSURL *resultURL,
+                                                  NSError *error) {
+                                          HandleURLResponse(result, requestId, error != nil, resultURL);
+                                        }];
+}
+  
+void iosJoinGameGroup(int requestId,
+                        const char *groupId) {
+  NSMutableDictionary *params = [NSMutableDictionary dictionary];
+  addCStrToNsDict(params, "id", groupId);
+
+  [FBWebDialogs presentDialogModallyWithSession:FBSession.activeSession
+                                         dialog:@"game_group_join"
+                                     parameters:params
+                                        handler:^(FBWebDialogResult result,
+                                                  NSURL *resultURL,
+                                                  NSError *error) {
+                                          HandleURLResponse(result, requestId, error != nil, resultURL);
+                                        }];
+}
 
 void iosAppRequest(int requestId,
                    const char *message,
+                   const char *actionType,
+                   const char *objectId,
                    const char **to,
                    int toLength,
                    const char *filters,
@@ -383,6 +459,10 @@ void iosAppRequest(int requestId,
                    const char *title) {
   NSMutableDictionary *params = [NSMutableDictionary dictionary];
   addCStrToNsDict(params, "message", message);
+  if (actionType != nil && objectId != nil) {
+    addCStrToNsDict(params, "action_type", actionType);
+    addCStrToNsDict(params, "object_id", objectId);
+  }
   addCStrToNsDict(params, "filters", filters);
   addCStrToNsDict(params, "data", data);
   addCStrToNsDict(params, "title", title);
@@ -473,8 +553,10 @@ void iosFeedRequest(int requestId,
     }
   }
 
-  bool userWantsNative = [FbUnityInterface sharedInstance].dialogMode == NativeDialogModes::FAST_APP_SWITCH_SHARE_DIALOG;
-  if(userWantsNative) {
+  bool shouldDisplayNative = [FbUnityInterface sharedInstance].dialogMode == NativeDialogModes::FAST_APP_SWITCH_SHARE_DIALOG;
+  // Native dialogs do not yet support To: fields, so fall back if we have one.
+  shouldDisplayNative = shouldDisplayNative && !(toId && toId[0] != 0);
+  if(shouldDisplayNative) {
     FBShareDialogParams *dialogParams = [[[FBShareDialogParams alloc] init] autorelease];
     
     NSString *strLink = [NSString stringWithUTF8String:link];
@@ -631,3 +713,13 @@ void iosFBAppEventsSetLimitEventUsage(BOOL limitEventUsage) {
 
 #endif
 
+@interface NSURLRequest (NSURLRequestWithIgnoreSSL)
++(BOOL)allowsAnyHTTPSCertificateForHost:(NSString*)host;
+@end
+
+@implementation NSURLRequest (NSURLRequestWithIgnoreSSL)
++(BOOL)allowsAnyHTTPSCertificateForHost:(NSString*)host
+{
+  return YES;
+}
+@end

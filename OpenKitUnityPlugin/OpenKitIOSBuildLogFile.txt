@@ -1,0 +1,45 @@
+In PostBuildOpenKitIOSScript
+---------------------------
+Perl Version: 5.016002
+Python Version: Python 2.7.5
+Unity version: 4.5.0f6
+Unity 3?: 0
+FacebookAppID: 450333868362300
+Install Path: /Users/Pet0r/Documents/Projects/iOSBuildsUnity/Gameeso
+Current Dir: /Users/Pet0r/Documents/Projects/Gameeso/openkit-unity/OpenKitUnityPlugin
+Python Script Path: /Users/Pet0r/Documents/Projects/Gameeso/openkit-unity/OpenKitUnityPlugin/Assets/Plugins/OpenKit/PostbuildScripts/OpenKitRunner.py
+Starting python script...
+---------------------------
+
+In OpenKitRunner.py
+---------------------------
+Install path: /Users/Pet0r/Documents/Projects/iOSBuildsUnity/Gameeso
+Facebook app ID: 450333868362300
+OK Vendor Path: /Users/Pet0r/Documents/Projects/Gameeso/openkit-unity/OpenKitUnityPlugin/Assets/Plugins/iOS/OpenKit_Vendor
+OK Resources Path: /Users/Pet0r/Documents/Projects/Gameeso/openkit-unity/OpenKitUnityPlugin/Assets/Plugins/iOS/OpenKitResources
+Opened and read contents of Info.plist.
+Wrote modifications to Info.plist.
+Loaded project.pbxproj.
+Added security framework.
+Added security framework.
+Added libsqlite3.0.
+Added QuartzCore framework.
+Added AdSupport framework.
+Added Accounts framework.
+Added Social framework.
+Added MobileCoreServices framework.
+Copied OpenKit_Vendor directory into install path.
+Copied OpenKitResources directory into install path.
+Added OpenKit_Vendor folder to Xcode project.
+Added OpenKitResources folder to Xcode project.
+Saved project.
+---------------------------
+
+Back in PostBuildOpenKitIOSScript
+---------------------------
+Adding OK calls to lifecycle delegate methods in AppController...
+Making sure didFinishLaunchingWithOptions returns YES...
+Done!
+---------------------------
+
+

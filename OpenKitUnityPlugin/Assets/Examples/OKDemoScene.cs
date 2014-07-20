@@ -7,7 +7,7 @@ using Facebook;
 
 public class OKDemoScene : MonoBehaviour {
 
-	private const int SampleLeaderboardID = 385;
+	private const int SampleLeaderboardID = 1;
 	private const String SampleLeaderboardGameCenterCategory = "level1";
 	private bool submitScoreNatively = true;
 	

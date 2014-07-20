@@ -22,9 +22,9 @@
     <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="\ 450333868362300" />
   </application>
   <uses-permission android:name="android.permission.INTERNET">
-    </uses-permission>
+  </uses-permission>
   <uses-permission android:name="android.permission.GET_ACCOUNTS">
-    </uses-permission>
+  </uses-permission>
   <uses-permission android:name="android.permission.USE_CREDENTIALS">
-    </uses-permission>
+  </uses-permission>
 </manifest>

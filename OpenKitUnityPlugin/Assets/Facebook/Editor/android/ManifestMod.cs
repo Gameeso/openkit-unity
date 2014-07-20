@@ -9,7 +9,13 @@ namespace UnityEditor.FacebookEditor
 {
     public class ManifestMod
     {
-        public const string ActivityName = "com.facebook.unity.FBUnityPlayerActivity";
+        public const string DeepLinkingActivityName = "com.facebook.unity.FBUnityDeepLinkingActivity";
+
+        public const string LoginActivityName = "com.facebook.LoginActivity";
+
+        public const string UnityLoginActivityName = "com.facebook.unity.FBUnityLoginActivity";
+
+        public const string ApplicationIdMetaDataName = "com.facebook.sdk.ApplicationId";
 
         public static void GenerateManifest()
         {
@@ -24,6 +30,53 @@ namespace UnityEditor.FacebookEditor
             UpdateManifest(outputFile);
         }
 
+        public static bool CheckManifest()
+        {
+            bool result = true;
+            var outputFile = Path.Combine(Application.dataPath, "Plugins/Android/AndroidManifest.xml");
+            if (!File.Exists(outputFile))
+            {
+                Debug.LogError("An android manifest must be generated for the Facebook SDK to work.  Go to Facebook->Edit Settings and press \"Regenerate Android Manifest\"");
+                return false;
+            }
+
+            XmlDocument doc = new XmlDocument();
+            doc.Load(outputFile);
+
+            if (doc == null)
+            {
+                Debug.LogError("Couldn't load " + outputFile);
+                return false;
+            }
+
+            XmlNode manNode = FindChildNode(doc, "manifest");
+            XmlNode dict = FindChildNode(manNode, "application");
+
+            if (dict == null)
+            {
+                Debug.LogError("Error parsing " + outputFile);
+                return false;
+            }
+
+            string ns = dict.GetNamespaceOfPrefix("android");
+
+            XmlElement loginElement = FindElementWithAndroidName("activity", "name", ns, UnityLoginActivityName, dict);
+            if (loginElement == null)
+            {
+                Debug.LogError(string.Format("{0} is missing from your android manifest.  Go to Facebook->Edit Settings and press \"Regenerate Android Manifest\"", LoginActivityName));
+                result = false;
+            }
+
+            var deprecatedMainActivityName = "com.facebook.unity.FBUnityPlayerActivity";
+            XmlElement deprecatedElement = FindElementWithAndroidName("activity", "name", ns, deprecatedMainActivityName, dict);
+            if (deprecatedElement != null)
+            {
+                Debug.LogWarning(string.Format("{0} is deprecated and no longer needed for the Facebook SDK.  Feel free to use your own main activity or use the default \"com.unity3d.player.UnityPlayerNativeActivity\"", deprecatedMainActivityName));
+            }
+
+            return result;
+        }
+
         private static XmlNode FindChildNode(XmlNode parent, string name)
         {
             XmlNode curr = parent.FirstChild;
@@ -32,20 +85,6 @@ namespace UnityEditor.FacebookEditor
                 if (curr.Name.Equals(name))
                 {
                     return curr;
-                }
-                curr = curr.NextSibling;
-            }
-            return null;
-        }
-
-        private static XmlElement FindMainActivityNode(XmlNode parent)
-        {
-            XmlNode curr = parent.FirstChild;
-            while (curr != null)
-            {
-                if (curr.Name.Equals("activity") && curr.FirstChild != null && curr.FirstChild.Name.Equals("intent-filter"))
-                {
-                    return curr as XmlElement;
                 }
                 curr = curr.NextSibling;
             }
@@ -65,7 +104,6 @@ namespace UnityEditor.FacebookEditor
             }
             return null;
         }
-
 
         public static void UpdateManifest(string fullPath)
         {
@@ -97,49 +135,78 @@ namespace UnityEditor.FacebookEditor
 
             string ns = dict.GetNamespaceOfPrefix("android");
 
-            //change 
-            //<activity android:name="com.unity3d.player.UnityPlayerProxyActivity" android:launchMode="singleTask" android:label="@string/app_name" android:configChanges="fontScale|keyboard|keyboardHidden|locale|mnc|mcc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|touchscreen" android:screenOrientation="portrait">
-            //to
-            //<activity android:name="com.facebook.unity.FBUnityPlayerActivity" android:launchMode="singleTask" android:label="@string/app_name" android:configChanges="fontScale|keyboard|keyboardHidden|locale|mnc|mcc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|touchscreen" android:screenOrientation="portrait">
-            XmlElement mainActivity = FindMainActivityNode(dict);
-            var mainActivityName = mainActivity.GetAttribute("name", ns);
-            if (mainActivityName != "com.unity3d.player.UnityPlayerProxyActivity" && 
-                mainActivityName != "com.unity3d.player.UnityPlayerNativeActivity" && 
-                mainActivityName != ActivityName)
+            //add the unity login activity
+            XmlElement unityLoginElement = FindElementWithAndroidName("activity", "name", ns, UnityLoginActivityName, dict);
+            if (unityLoginElement == null)
             {
-                FbDebug.Warn("FBUnityPlayerActivity was not detected as the main activity in the AndroidManifest.xml!  Be sure to have your activity extend " + ActivityName + " for the Facebook SDK to work");
-            }
-            else
-            {
-                mainActivity.SetAttribute("name", ns, ActivityName);
+                unityLoginElement = CreateUnityLoginElement(doc, ns);
+                dict.AppendChild(unityLoginElement);
             }
 
+
             //add the login activity
-            //<activity android:name="com.facebook.LoginActivity" android:screenOrientation="portrait" android:configChanges="keyboardHidden|orientation">
-            //</activity>
-            XmlElement loginElement = FindElementWithAndroidName("activity", "name", ns, "com.facebook.LoginActivity", dict);
+            XmlElement loginElement = FindElementWithAndroidName("activity", "name", ns, LoginActivityName, dict);
             if (loginElement == null)
             {
-                loginElement = doc.CreateElement("activity");
-                loginElement.SetAttribute("name", ns, "com.facebook.LoginActivity");
-                loginElement.SetAttribute("screenOrientation", ns, "portrait");
-                loginElement.SetAttribute("configChanges", ns, "keyboardHidden|orientation");
-                loginElement.InnerText = "\n    ";  //be extremely anal to make diff tools happy
+                loginElement = CreateLoginElement(doc, ns);
                 dict.AppendChild(loginElement);
+            }
+
+            //add deep linking activity
+            XmlElement deepLinkingElement = FindElementWithAndroidName("activity", "name", ns, DeepLinkingActivityName, dict);
+            if (deepLinkingElement == null)
+            {
+                deepLinkingElement = CreateDeepLinkingElement(doc, ns);
+                dict.AppendChild(deepLinkingElement);
             }
 
             //add the app id
             //<meta-data android:name="com.facebook.sdk.ApplicationId" android:value="\ 409682555812308" />
-            XmlElement appIdElement = FindElementWithAndroidName("meta-data", "name", ns, "com.facebook.sdk.ApplicationId", dict);
+            XmlElement appIdElement = FindElementWithAndroidName("meta-data", "name", ns, ApplicationIdMetaDataName, dict);
             if (appIdElement == null)
             {
                 appIdElement = doc.CreateElement("meta-data");
-                appIdElement.SetAttribute("name", ns, "com.facebook.sdk.ApplicationId");
+                appIdElement.SetAttribute("name", ns, ApplicationIdMetaDataName);
                 dict.AppendChild(appIdElement);
             }
             appIdElement.SetAttribute("value", ns, "\\ " + appId); //stupid hack so that the id comes out as a string
 
             doc.Save(fullPath);
+        }
+
+        private static XmlElement CreateLoginElement(XmlDocument doc, string ns)
+        {
+            //<activity android:name="com.facebook.LoginActivity" android:configChanges="keyboardHidden|orientation" android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen">
+            //</activity>
+            XmlElement activityElement = doc.CreateElement("activity");
+            activityElement.SetAttribute("name", ns, LoginActivityName);
+            activityElement.SetAttribute("configChanges", ns, "keyboardHidden|orientation");
+            activityElement.SetAttribute("theme", ns, "@android:style/Theme.Translucent.NoTitleBar.Fullscreen");
+            activityElement.InnerText = "\n    ";  //be extremely anal to make diff tools happy
+            return activityElement;
+        }
+
+        private static XmlElement CreateDeepLinkingElement(XmlDocument doc, string ns)
+        {
+            //<activity android:name="com.facebook.unity.FBDeepLinkingActivity" android:exported="true">
+            //</activity>
+            XmlElement activityElement = doc.CreateElement("activity");
+            activityElement.SetAttribute("name", ns, DeepLinkingActivityName);
+            activityElement.SetAttribute("exported", ns, "true");
+            activityElement.InnerText = "\n    ";  //be extremely anal to make diff tools happy
+            return activityElement;
+        }
+
+        private static XmlElement CreateUnityLoginElement(XmlDocument doc, string ns)
+        {
+            //<activity android:name="com.facebook.unity.FBUnityLoginActivity" android:configChanges="all|of|them" android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen">
+            //</activity>
+            XmlElement activityElement = doc.CreateElement("activity");
+            activityElement.SetAttribute("name", ns, UnityLoginActivityName);
+            activityElement.SetAttribute("configChanges", ns, "fontScale|keyboard|keyboardHidden|locale|mnc|mcc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|touchscreen");
+            activityElement.SetAttribute("theme", ns, "@android:style/Theme.Translucent.NoTitleBar.Fullscreen");
+            activityElement.InnerText = "\n    ";  //be extremely anal to make diff tools happy
+            return activityElement;
         }
     }
 }
