@@ -39,18 +39,21 @@ print 'creating archive'
 filename = 'Gameeso-Unity-SDK.zip'
 zf = zipfile.ZipFile(filename, mode='w')
 try:
-    for f in ["Assets/Editor/OpenKitPostprocessBuildPlayer.cs",
-            "Assets/Editor/OpenKitSettingsWindow.cs",
-            "Assets/Examples/OKDemoScene.cs",
-            "Assets/Examples/OKDemoScene.unity",
-            "Assets/Plugins/Android/OpenKitSDK",
-            "Assets/Plugins/iOS/libOpenKit.a",
-            "Assets/Plugins/iOS/libOpenKitUnity.a",
-            "Assets/Plugins/iOS/OpenKit_Vendor",
-            "Assets/Plugins/iOS/OpenKitResources",
-            "Assets/Plugins/OpenKit",
-            "Assets/Plugins/RestSharp.dll",
-            "Assets/Prefabs/OpenKitPrefab.prefab"]:
+    for f in [
+                "Assets/Editor/OpenKitPostprocessBuildPlayer.cs",
+                "Assets/Editor/OpenKitSettingsWindow.cs",
+                "Assets/Examples/OKDemoScene.cs",
+                "Assets/Examples/OKDemoScene.unity",
+                "Assets/Plugins/Android/OpenKitSDK",
+                "Assets/Plugins/iOS/libOpenKit.a",
+                "Assets/Plugins/iOS/libOpenKitUnity.a",
+                "Assets/Plugins/iOS/OpenKit_Vendor",
+                "Assets/Plugins/iOS/OpenKitResources",
+                "Assets/Plugins/OpenKit",
+                "Assets/Plugins/RestSharp.dll",
+                "Assets/Prefabs/OpenKitPrefab.prefab",
+                "ProjectSettings"
+            ]:
         print "Adding '%s' to archive." % f
         if os.path.isfile(f):
             zf.write(f)
